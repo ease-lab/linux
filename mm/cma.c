@@ -33,12 +33,21 @@
 #include <linux/io.h>
 #include <linux/kmemleak.h>
 #include <trace/events/cma.h>
+#include <linux/types.h>
 
 #include "cma.h"
 
 struct cma cma_areas[MAX_CMA_AREAS];
 unsigned cma_area_count;
 static DEFINE_MUTEX(cma_mutex);
+
+#ifdef CONFIG_CONTINUOUS_PTE_X86
+struct cma* process_cma_areas[MAX_PROCESSES]
+struct cma get_cma_area(pid_t pid){
+// TODO given pid returen its cma area
+// If the process doesn't have corresponding cma area, initialise it
+}
+#endif
 
 phys_addr_t cma_get_base(const struct cma *cma)
 {

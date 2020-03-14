@@ -16,6 +16,10 @@
 #define MAX_CMA_AREAS	(0)
 
 #endif
+#ifdef CONFIG_CONTINUOUS_PTE_X86
+#define MAX_PROCESSES
+struct cma get_cma_area(pid_t pid);
+#endif
 
 struct cma;
 

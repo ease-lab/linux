@@ -68,12 +68,14 @@
 #include <linux/lockdep.h>
 #include <linux/nmi.h>
 #include <linux/psi.h>
+#include <linux/cma.h>
 
 #include <asm/sections.h>
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
 #include "internal.h"
 #include "shuffle.h"
+#include "cma.h"
 
 /* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */
 static DEFINE_MUTEX(pcp_batch_high_lock);
@@ -3170,7 +3172,7 @@ int __isolate_free_page(struct page *page, unsigned int order)
 	return 1UL << order;
 }
 
-/*
+/*	
  * Update NUMA hit/miss statistics
  *
  * Must be called with interrupts disabled.
@@ -4685,6 +4687,22 @@ static inline void finalise_ac(gfp_t gfp_mask, struct alloc_context *ac)
 					ac->high_zoneidx, ac->nodemask);
 }
 
+#ifdef CONFIG_CONTINUOUS_PTE_X86
+#ifndef CONFIG_DMA_CMA
+	#error "CMA configuration not set in kernel!"
+#endif
+#ifndef CMA_DEBUG
+	#define CMA_DEBUG 		0
+#endif
+
+struct page * __alloc_pages_cma(pid_t pid, unsigned int order) 
+{
+	unsigned int align = order;
+	bool warn = true; //may change to parameter
+	struct cma = get_cma_area(pid);
+	return cma_alloc(cma, order, align, warn);
+}
+#endif
 /*
  * This is the 'heart' of the zoned buddy allocator.
  */

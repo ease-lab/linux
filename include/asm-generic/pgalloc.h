@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+#include <linux/types.h>
+
 #ifndef __ASM_GENERIC_PGALLOC_H
 #define __ASM_GENERIC_PGALLOC_H
 
@@ -59,8 +61,15 @@ static inline void pte_free_kernel(struct mm_struct *mm, pte_t *pte)
 static inline pgtable_t __pte_alloc_one(struct mm_struct *mm, gfp_t gfp)
 {
 	struct page *pte;
-
+	
+#ifdef CONFIG_CONTINUOUS_PTE_X86
+	// Todo find out pid
+	pid_t pid = mm->owner-pid;
+	pte = alloc_page_cma(pid)
+#else
 	pte = alloc_page(gfp);
+#endif
+
 	if (!pte)
 		return NULL;
 	if (!pgtable_pte_page_ctor(pte)) {
