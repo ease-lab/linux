@@ -1,9 +1,0 @@
-Reading package lists...
-Building dependency tree...
-Reading state information...
-bison is already the newest version (2:3.0.4.dfsg-1build1).
-The following packages were automatically installed and are no longer required:
-  cups-browsed cups-daemon cups-ipp-utils libcupscgi1 libcupsmime1
-  libsane-hpaio
-Use 'sudo apt autoremove' to remove them.
-0 to upgrade, 0 to newly install, 0 to remove and 20 not to upgrade.
