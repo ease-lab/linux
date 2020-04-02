@@ -16,8 +16,14 @@
 #define MAX_CMA_AREAS	(0)
 
 #endif
+extern int continuous_ptable_size;
+extern long min_continuous_ptable_size;
+extern long max_continuous_ptable_size;
+struct ctl_table;
+int continuous_ptable_size_handler(struct ctl_table *table, int write,
+			     void __user *buffer, size_t *lenp,
+			     loff_t *ppos);
 #ifdef CONFIG_CONTINUOUS_PTE_X86
-#define MAX_PROCESSES
 struct cma get_cma_area(pid_t pid);
 #endif
 

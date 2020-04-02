@@ -41,6 +41,18 @@ struct cma cma_areas[MAX_CMA_AREAS];
 unsigned cma_area_count;
 static DEFINE_MUTEX(cma_mutex);
 
+int continuous_ptable_size = 0;
+long min_continuous_ptable_size = 0;
+long max_continuous_ptable_size;
+int continuous_ptable_size_handler(struct ctl_table *table, int write,
+			     void __user *buffer, size_t *lenp,
+			     loff_t *ppos)
+{
+	int ret;
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+
+	return ret;
+}
 #ifdef CONFIG_CONTINUOUS_PTE_X86
 struct cma* process_cma_areas[MAX_PROCESSES]
 struct cma get_cma_area(pid_t pid){
@@ -226,6 +238,7 @@ int __init cma_init_reserved_mem(phys_addr_t base, phys_addr_t size,
 	*res_cma = cma;
 	cma_area_count++;
 	totalcma_pages += (size / PAGE_SIZE);
+	max_continuous_ptable_size = totalcma_pages >> 8;
 
 	return 0;
 }

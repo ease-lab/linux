@@ -68,6 +68,7 @@
 #include <linux/bpf.h>
 #include <linux/mount.h>
 #include <linux/userfaultfd_k.h>
+#include <linux/cma.h>
 
 #include "../lib/kstrtox.h"
 
@@ -1730,6 +1731,15 @@ static struct ctl_table vm_table[] = {
 		.extra2		= (void *)&mmap_rnd_compat_bits_max,
 	},
 #endif
+	{
+		.procname	= "continuous_ptable_size",
+		.data		= &continuous_ptable_size,
+		.maxlen		= sizeof(continuous_ptable_size),
+		.mode		= 0644,
+		.proc_handler	= continuous_ptable_size_handler,
+		.extra1		= (void *)&min_continuous_ptable_size,
+		.extra2		= (void *)&max_continuous_ptable_size,
+	},
 #ifdef CONFIG_USERFAULTFD
 	{
 		.procname	= "unprivileged_userfaultfd",
