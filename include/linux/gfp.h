@@ -509,11 +509,11 @@ alloc_pages(gfp_t gfp_mask, unsigned int order)
 	return alloc_pages_current(gfp_mask, order);
 }
 
-struct page * __alloc_pages_cma(int pid, gfp_t gfp, unsigned int order);
+extern struct page * __alloc_pages_cma(pid_t pid, gfp_t gfp, unsigned int order);
 
 #define alloc_page_cma(pid, gfp) \
 		alloc_pages_cma(pid, gfp, 0)
-static inline struct page *alloc_pages_cma(int pid, gfp_t gfp, unsigned int order)
+static inline struct page *alloc_pages_cma(pid_t pid, gfp_t gfp, unsigned int order)
 {
 	return __alloc_pages_cma(pid, gfp, order);
 }

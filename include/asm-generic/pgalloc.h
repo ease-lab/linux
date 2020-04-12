@@ -63,13 +63,12 @@ static inline pgtable_t __pte_alloc_one(struct mm_struct *mm, gfp_t gfp)
 {
 	struct page *pte;
 	pid_t pid = mm->owner->pid;
-	int pid_i = (int) pid;
 
 	// pte = cma_pte_alloc(pid, 1, 0);
-	pte = alloc_page_cma(pid_i, gfp);
-	// if (!pte)
-	// 	pte = alloc_page(gfp);
-	pte = alloc_page(gfp);
+	pte = alloc_page_cma(pid, gfp);
+	// If cma allocation fails or is not enabled 
+	if (!pte)
+		pte = alloc_page(gfp);
 	
 	if (!pte)
 		return NULL;

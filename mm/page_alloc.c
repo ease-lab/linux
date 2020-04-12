@@ -4687,7 +4687,7 @@ static inline void finalise_ac(gfp_t gfp_mask, struct alloc_context *ac)
 }
 
 
-struct page * __alloc_pages_cma(int pid, gfp_t gfp, unsigned int order) 
+struct page * __alloc_pages_cma(pid_t pid, gfp_t gfp, unsigned int order) 
 {
 	return cma_pte_alloc(pid, 1, order);
 }
