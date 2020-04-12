@@ -508,18 +508,20 @@ alloc_pages(gfp_t gfp_mask, unsigned int order)
 {
 	return alloc_pages_current(gfp_mask, order);
 }
+
+struct page * __alloc_pages_cma(int pid, gfp_t gfp, unsigned int order);
+
+#define alloc_page_cma(pid, gfp) \
+		alloc_pages_cma(pid, gfp, 0)
+static inline struct page *alloc_pages_cma(int pid, gfp_t gfp, unsigned int order)
+{
+	return __alloc_pages_cma(pid, gfp, order);
+}
+
 extern struct page *alloc_pages_vma(gfp_t gfp_mask, int order,
 			struct vm_area_struct *vma, unsigned long addr,
 			int node);
 #else
-#ifdef CONFIG_CONTINUOUS_PTE_X86
-#define alloc_page_cma(pid_t pid) \
-		alloc_pages_cma(pid_t, 0)
-static inline struct page *alloc_pages_cma(pid_t pid, unsigned int order)
-{
-	return __alloc_pages_cma(pid, order);
-}
-#endif
 #define alloc_pages(gfp_mask, order) \
 		alloc_pages_node(numa_node_id(), gfp_mask, order)
 #define alloc_pages_vma(gfp_mask, order, vma, addr, node)\

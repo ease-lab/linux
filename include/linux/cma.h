@@ -4,6 +4,7 @@
 
 #include <linux/init.h>
 #include <linux/types.h>
+#include <linux/list.h>
 
 /*
  * There is always at least global CMA area and a few optional
@@ -16,18 +17,30 @@
 #define MAX_CMA_AREAS	(0)
 
 #endif
+struct cma;
+
+extern int continuous_ptable_enable;
+extern long min_continuous_ptable;
+extern long max_continuous_ptable;
+
 extern int continuous_ptable_size;
 extern long min_continuous_ptable_size;
 extern long max_continuous_ptable_size;
+
 struct ctl_table;
 int continuous_ptable_size_handler(struct ctl_table *table, int write,
 			     void __user *buffer, size_t *lenp,
-			     loff_t *ppos);
-#ifdef CONFIG_CONTINUOUS_PTE_X86
-struct cma get_cma_area(pid_t pid);
-#endif
+			     loff_t *ppos); 
 
-struct cma;
+int continuous_ptable_enable_handler(struct ctl_table *table, int write,
+			     void __user *buffer, size_t *lenp,
+			     loff_t *ppos);
+#define MAX_PROCESSES (1)
+
+// extern struct cma get_cma_ptable(pid_t pid);
+extern cma register_cma_pte_pool(pid_t pid);
+extern struct page *cma_pte_alloc(pid_t pid, size_t count, unsigned int order);
+
 
 extern unsigned long totalcma_pages;
 extern phys_addr_t cma_get_base(const struct cma *cma);

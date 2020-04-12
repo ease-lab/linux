@@ -15,7 +15,14 @@ struct cma {
 	const char *name;
 };
 
-extern struct cma cma_areas[MAX_CMA_AREAS];
+typedef struct cma_pte_pool cma_pte_pool_t;
+struct cma_pte_pool{
+	int pid;
+	struct cma *cma_area;
+	cma_pte_pool_t *next;
+};
+
+extern struct cma cma_areas[MAX_CMA_AREAS+MAX_PROCESSES];
 extern unsigned cma_area_count;
 
 static inline unsigned long cma_bitmap_maxno(struct cma *cma)

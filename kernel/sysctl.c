@@ -1740,6 +1740,15 @@ static struct ctl_table vm_table[] = {
 		.extra1		= (void *)&min_continuous_ptable_size,
 		.extra2		= (void *)&max_continuous_ptable_size,
 	},
+	{
+		.procname	= "continuous_ptable_enable",
+		.data		= &continuous_ptable_enable,
+		.maxlen		= sizeof(continuous_ptable_enable),
+		.mode		= 0644,
+		.proc_handler	= continuous_ptable_enable_handler,
+		.extra1		= (void *)&min_continuous_ptable,
+		.extra2		= (void *)&max_continuous_ptable,
+	},
 #ifdef CONFIG_USERFAULTFD
 	{
 		.procname	= "unprivileged_userfaultfd",

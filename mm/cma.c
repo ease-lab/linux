@@ -37,11 +37,24 @@
 
 #include "cma.h"
 
-struct cma cma_areas[MAX_CMA_AREAS];
+struct cma cma_areas[MAX_CMA_AREAS+MAX_PROCESSES];
 unsigned cma_area_count;
 static DEFINE_MUTEX(cma_mutex);
 
-int continuous_ptable_size = 0;
+int continuous_ptable_enable = 0;
+long min_continuous_ptable = 0;
+long max_continuous_ptable = 1;
+int continuous_ptable_enable_handler(struct ctl_table *table, int write,
+			     void __user *buffer, size_t *lenp,
+			     loff_t *ppos)
+{
+	int ret;
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+
+	return ret;
+}
+
+int continuous_ptable_size = 10;
 long min_continuous_ptable_size = 0;
 long max_continuous_ptable_size;
 int continuous_ptable_size_handler(struct ctl_table *table, int write,
@@ -53,13 +66,71 @@ int continuous_ptable_size_handler(struct ctl_table *table, int write,
 
 	return ret;
 }
-#ifdef CONFIG_CONTINUOUS_PTE_X86
-struct cma* process_cma_areas[MAX_PROCESSES]
-struct cma get_cma_area(pid_t pid){
+
+cma_pte_pool_t cma_ptable_list;
+unsigned long POOL_SIZE = 1 * SZ_16M;
+
+
+__init phys_addr_t init_cma_ptables_list(phys_addr_t base, phys_addr_t size, unsigned int order_per_bit)
+{
+	int ret = 0;
+	int i;
+	cma_pte_pool_t *temp_pool;
+	cma_pte_pool_t *prev_pool;
+	phys_addr_t reserved_size = 0;
+	struct cma *temp_cma;
+
+	if (size < (MAX_PROCESSES * POOL_SIZE)) {
+		return base;
+	}
+	temp_pool = &cma_ptable_list;
+
+	for (i = 0; i < MAX_PROCESSES; i++) {
+		ret = cma_init_reserved_mem(base+reserved_size, (phys_addr_t) POOL_SIZE, order_per_bit, "cma_pte_pool", &temp_cma);
+		if (ret) {
+			pr_err("Failed to reserve %d pte pool %ld MiB\n", i, POOL_SIZE / SZ_1M);
+			memblock_free(base, POOL_SIZE); 
+			break;
+		}
+		temp_pool->cma_area = temp_cma;
+		prev_pool = temp_pool;
+		temp_pool = prev_pool->next;
+		reserved_size = reserved_size + POOL_SIZE;
+		
+	}
+	pr_debug("%s(total size %pa, base %pa, ptable reserved size %pa, reserve %d pools)\n",
+		__func__, &size, &base, &reserved_size, i);
+
+	return reserved_size;
+}	
+
+struct cma get_cma_ptable(pid_t pid)
+{
 // TODO given pid returen its cma area
 // If the process doesn't have corresponding cma area, initialise it
+return cma_areas[0];
+}	
+
+struct cma register_cma_pte_pool(pid_t pid)
+{
+	// TODO register a cma pte pool for a new process 
+	if (!continuous_ptable_enable)
+		return NULL;
+	return cma_areas[0];
 }
-#endif
+
+struct page *cma_pte_alloc(pid_t pid, size_t count, unsigned int order)
+{   
+	unsigned int align = order;
+	struct cma pte_pool;
+	if (!continuous_ptable_enable)
+		return NULL;
+
+	pte_pool = get_cma_ptable(pid);
+
+	return cma_alloc(&pte_pool, order, align, 1);
+}
+// EXPORT_SYMBOL(cma_pte_alloc);
 
 phys_addr_t cma_get_base(const struct cma *cma)
 {
@@ -270,6 +341,7 @@ int __init cma_declare_contiguous(phys_addr_t base,
 	phys_addr_t memblock_end = memblock_end_of_DRAM();
 	phys_addr_t highmem_start;
 	int ret = 0;
+	phys_addr_t ptable_reserved_size = 0;
 
 	/*
 	 * We can't use __pa(high_memory) directly, since high_memory
@@ -382,7 +454,9 @@ int __init cma_declare_contiguous(phys_addr_t base,
 		base = addr;
 	}
 
-	ret = cma_init_reserved_mem(base, size, order_per_bit, name, res_cma);
+	ptable_reserved_size = init_cma_ptables_list(base, size, order_per_bit);
+	ret = cma_init_reserved_mem(base+ptable_reserved_size, size-ptable_reserved_size, order_per_bit, name, res_cma);
+
 	if (ret)
 		goto free_mem;
 

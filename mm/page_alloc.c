@@ -75,7 +75,6 @@
 #include <asm/div64.h>
 #include "internal.h"
 #include "shuffle.h"
-#include "cma.h"
 
 /* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */
 static DEFINE_MUTEX(pcp_batch_high_lock);
@@ -4687,22 +4686,12 @@ static inline void finalise_ac(gfp_t gfp_mask, struct alloc_context *ac)
 					ac->high_zoneidx, ac->nodemask);
 }
 
-#ifdef CONFIG_CONTINUOUS_PTE_X86
-#ifndef CONFIG_DMA_CMA
-	#error "CMA configuration not set in kernel!"
-#endif
-#ifndef CMA_DEBUG
-	#define CMA_DEBUG 		0
-#endif
 
-struct page * __alloc_pages_cma(pid_t pid, unsigned int order) 
+struct page * __alloc_pages_cma(int pid, gfp_t gfp, unsigned int order) 
 {
-	unsigned int align = order;
-	bool warn = true; //may change to parameter
-	struct cma = get_cma_area(pid);
-	return cma_alloc(cma, order, align, warn);
+	return cma_pte_alloc(pid, 1, order);
 }
-#endif
+EXPORT_SYMBOL(__alloc_pages_cma);
 /*
  * This is the 'heart' of the zoned buddy allocator.
  */
