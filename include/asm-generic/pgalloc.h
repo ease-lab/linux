@@ -62,13 +62,12 @@ static inline void pte_free_kernel(struct mm_struct *mm, pte_t *pte)
 static inline pgtable_t __pte_alloc_one(struct mm_struct *mm, gfp_t gfp)
 {
 	struct page *pte;
-	pid_t pid = mm->owner->pid;
+	// pid_t pid = mm->owner->pid;
 
 	// pte = cma_pte_alloc(pid, 1, 0);
-	pte = alloc_page_cma(pid, gfp);
-	// If cma allocation fails or is not enabled 
-	if (!pte)
-		pte = alloc_page(gfp);
+	// pte = alloc_page_cma(pid, gfp);
+	// if (!pte)
+	pte = alloc_page(gfp);
 	
 	if (!pte)
 		return NULL;

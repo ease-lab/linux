@@ -73,12 +73,12 @@ static DEFINE_SPINLOCK(cma_ptable_lock);
 
 unsigned long POOL_SIZE = 1 * SZ_16M;
 
-static void init_cma_pte_pool(cma** cma_area)
+void init_cma_pte_pool(struct cma** cma_area)
 {
 	struct cma_pte_pool pte_pool = {
 		.pid = -1,
-		.cma_area = &cma_area};
-	spin_lock(&cma_ptable_freelist_head);
+		.cma_area = *cma_area};
+	spin_lock(&cma_ptable_lock);
 	list_add(&pte_pool.cma_ptable_list, &cma_ptable_freelist_head);
 	spin_unlock(&cma_ptable_lock);
 }
@@ -86,7 +86,7 @@ static void init_cma_pte_pool(cma** cma_area)
 __init phys_addr_t init_cma_ptables_list(phys_addr_t base, phys_addr_t size, unsigned int order_per_bit)
 {
 	int ret = 0;
-	int i;
+	int i = 0;
 	phys_addr_t reserved_size = 0;
 	struct cma *temp_cma;
 
@@ -111,17 +111,24 @@ __init phys_addr_t init_cma_ptables_list(phys_addr_t base, phys_addr_t size, uns
 	return reserved_size;
 }	
 
-static struct cma *get_cma_area(pid_t target_pid)
+struct cma_pte_pool *get_cma_pte_pool(pid_t pid) {
+	struct cma_pte_pool *pool;
+	spin_lock(&cma_ptable_lock);
+	list_for_each_entry(pool, &cma_ptable_freelist_head, cma_ptable_list) {
+		if (pool->pid == pid) {
+			spin_unlock(&cma_ptable_lock);
+			return pool;
+		}
+	}
+	spin_unlock(&cma_ptable_lock);
+	pr_debug("%s(unable to find cma area for process %d)\n",
+			__func__, pid);
+	return NULL;
+}
+
+struct cma *get_cma_area(pid_t target_pid)
 {
-	struct cma_pte_pool *pool = get_pool(pid);
-	// spin_lock(&cma_ptable_lock);
-	// list_for_each_entry(pool, &cma_ptable_freelist_head, cma_ptable_list) {
-	// 	if (pool->pid == target_pid) {
-	// 		spin_unlock(&cma_ptable_lock);
-	// 		return pool->cma_area;
-	// 	}
-	// }
-	// spin_unlock(&cma_ptable_lock);
+	struct cma_pte_pool *pool = get_cma_pte_pool(target_pid);
 	if (!pool) {
 		pr_debug("%s(unable to find cma area for process %d)\n",
 				__func__, target_pid);
@@ -130,22 +137,7 @@ static struct cma *get_cma_area(pid_t target_pid)
 	return pool->cma_area;
 }
 
-static struct cma_pte_pool *get_pool(pid) {
-	struct cma_pte_pool *pool;
-	spin_lock(&cma_ptable_lock);
-	list_for_each_entry(pool, &cma_ptable_freelist_head, cma_ptable_list) {
-		if (pool->pid == target_pid) {
-			spin_unlock(&cma_ptable_lock);
-			return pool;
-		}
-	}
-	spin_unlock(&cma_ptable_lock);
-	pr_debug("%s(unable to find cma area for process %d)\n",
-			__func__, target_pid);
-	return NULL;
-}
-
-static struct cma *register_cma_pte_pool(pid_t pid)
+struct cma *register_cma_pte_pool(pid_t pid)
 {
 	struct list_head *free_entry;
 	struct cma_pte_pool *free_pool;
@@ -167,31 +159,30 @@ static struct cma *register_cma_pte_pool(pid_t pid)
 	return free_pool->cma_area;
 }
 
-static void free_cma_pte_pool(pid_t pid)
+void free_cma_pte_pool(pid_t pid)
 {
-	struct list_head *target_entry;
-	struct cma_pte_pool *target_pool;
+	struct cma_pte_pool *target_cma_pte_pool;
 
 	if (!continuous_ptable_enable)
 		return ;
-	if (!get_cma_ptable(pid)){
+	if (!get_cma_area(pid)){
 		return ;
 	}
-	target_pool = get_pool(pid);
-	list_move(&(target_pool->cma_ptable_list), &cma_ptable_freelist_head);
+	target_cma_pte_pool = get_cma_pte_pool(pid);
+	list_move(&(target_cma_pte_pool->cma_ptable_list), &cma_ptable_freelist_head);
 	return ;
 }
 
-static struct page *cma_pte_alloc(pid_t pid, size_t count, unsigned int order)
+struct page *cma_pte_alloc(pid_t pid, size_t count, unsigned int order)
 {   
 	unsigned int align = order;
-	struct cma pte_pool;
+	struct cma *cma_area;
 	if (!continuous_ptable_enable)
 		return NULL;
 
-	pte_pool = get_cma_ptable(pid);
+	cma_area = get_cma_area(pid);
 
-	return cma_alloc(&pte_pool, order, align, 1);
+	return cma_alloc(cma_area, order, align, 1);
 }
 // EXPORT_SYMBOL(cma_pte_alloc);
 
