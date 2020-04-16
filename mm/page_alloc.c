@@ -68,7 +68,6 @@
 #include <linux/lockdep.h>
 #include <linux/nmi.h>
 #include <linux/psi.h>
-#include <linux/cma.h>
 
 #include <asm/sections.h>
 #include <asm/tlbflush.h>
@@ -4687,11 +4686,11 @@ static inline void finalise_ac(gfp_t gfp_mask, struct alloc_context *ac)
 }
 
 
-struct page * __alloc_pages_cma(pid_t pid, gfp_t gfp, unsigned int order) 
-{
-	return cma_pte_alloc(pid, 1, order);
-}
-EXPORT_SYMBOL(__alloc_pages_cma);
+// struct page * __alloc_pages_cma(pid_t pid, gfp_t gfp, unsigned int order) 
+// {
+// 	return cma_pte_alloc(pid, 1, order);
+// }
+// EXPORT_SYMBOL(__alloc_pages_cma);
 /*
  * This is the 'heart' of the zoned buddy allocator.
  */

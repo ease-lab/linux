@@ -67,23 +67,33 @@ int continuous_ptable_size_handler(struct ctl_table *table, int write,
 	return ret;
 }
 
-cma_pte_pool_t cma_ptable_list;
-unsigned long POOL_SIZE = 1 * SZ_16M;
+static LIST_HEAD(cma_ptable_freelist_head);
+static LIST_HEAD(cma_ptable_usedlist_head);
+static DEFINE_SPINLOCK(cma_ptable_lock);
 
+static void init_cma_pte_pool(cma** cma_area)
+{
+	struct cma_pte_pool pte_pool = {
+		.pid = -1,
+		.cma_area = &cma_area};
+	spin_lock(&cma_ptable_freelist_head);
+	list_add(&pte_pool.cma_ptable_list, &cma_ptable_freelist_head);
+	spin_unlock(&cma_ptable_lock);
+}
+
+unsigned long POOL_SIZE = 1 * SZ_16M;
 
 __init phys_addr_t init_cma_ptables_list(phys_addr_t base, phys_addr_t size, unsigned int order_per_bit)
 {
 	int ret = 0;
 	int i;
-	cma_pte_pool_t *temp_pool;
-	cma_pte_pool_t *prev_pool;
 	phys_addr_t reserved_size = 0;
 	struct cma *temp_cma;
 
 	if (size < (MAX_PROCESSES * POOL_SIZE)) {
-		return base;
+		pr_err("Failed to reserve %d pte pool %ld MiB: Not enough memory\n", i, POOL_SIZE / SZ_1M);
+		return reserved_size;
 	}
-	temp_pool = &cma_ptable_list;
 
 	for (i = 0; i < MAX_PROCESSES; i++) {
 		ret = cma_init_reserved_mem(base+reserved_size, (phys_addr_t) POOL_SIZE, order_per_bit, "cma_pte_pool", &temp_cma);
@@ -92,11 +102,8 @@ __init phys_addr_t init_cma_ptables_list(phys_addr_t base, phys_addr_t size, uns
 			memblock_free(base, POOL_SIZE); 
 			break;
 		}
-		temp_pool->cma_area = temp_cma;
-		prev_pool = temp_pool;
-		temp_pool = prev_pool->next;
+		init_cma_pte_pool(&temp_cma);
 		reserved_size = reserved_size + POOL_SIZE;
-		
 	}
 	pr_debug("%s(total size %pa, base %pa, ptable reserved size %pa, reserve %d pools)\n",
 		__func__, &size, &base, &reserved_size, i);
@@ -104,22 +111,58 @@ __init phys_addr_t init_cma_ptables_list(phys_addr_t base, phys_addr_t size, uns
 	return reserved_size;
 }	
 
-struct cma get_cma_ptable(pid_t pid)
+static struct cma *get_cma_ptable(pid_t target_pid)
 {
-// TODO given pid returen its cma area
-// If the process doesn't have corresponding cma area, initialise it
-return cma_areas[0];
-}	
-
-struct cma register_cma_pte_pool(pid_t pid)
-{
-	// TODO register a cma pte pool for a new process 
-	if (!continuous_ptable_enable)
-		return NULL;
-	return cma_areas[0];
+	struct cma_pte_pool *pool;
+	spin_lock(&cma_ptable_lock);
+	list_for_each_entry(pool, &cma_ptable_freelist_head, cma_ptable_list) {
+		if (pool->pid == target_pid) {
+			spin_unlock(&cma_ptable_lock);
+			return pool->cma_area;
+		}
+	}
+	spin_unlock(&cma_ptable_lock);
+	pr_debug("%s(unable to find cma area for process %d)\n",
+			__func__, target_pid);
+	return NULL;
 }
 
-struct page *cma_pte_alloc(pid_t pid, size_t count, unsigned int order)
+static struct cma *register_cma_pte_pool(pid_t pid)
+{
+	struct list_head *free_entry;
+	struct cma_pte_pool *free_pool;
+
+	if (!continuous_ptable_enable) {
+		pr_debug("%s(Continuous pagetable is not enabled)\n", __func__);
+		return NULL;
+	}
+	if (list_empty(&cma_ptable_freelist_head)) {
+		pr_debug("%s(unable to register cma area for pte allocation: reach maximum number of processes)\n",
+			__func__);
+		return NULL;
+	}
+
+	free_entry = cma_ptable_freelist_head.prev;
+	list_move_tail(free_entry, &cma_ptable_usedlist_head);
+	free_pool = list_entry(free_entry, struct cma_pte_pool, cma_ptable_list);
+	free_pool->pid = pid;
+	return free_pool->cma_area;
+}
+
+static void free_cma_pte_pool(pid_t pid)
+{
+	struct list_head *target_entry;
+	struct cma_pte_pool *target_pool;
+	if (!continuous_ptable_enable)
+		return ;
+	if (!get_cma_ptable(pid)){
+		return ;
+	}
+	// Unfinished
+	return ;
+}
+
+static struct page *cma_pte_alloc(pid_t pid, size_t count, unsigned int order)
 {   
 	unsigned int align = order;
 	struct cma pte_pool;

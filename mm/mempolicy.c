@@ -99,6 +99,7 @@
 #include <linux/mmu_notifier.h>
 #include <linux/printk.h>
 #include <linux/swapops.h>
+#include <linux/cma.h>
 
 #include <asm/tlbflush.h>
 #include <linux/uaccess.h>
@@ -2155,6 +2156,20 @@ struct page *alloc_pages_current(gfp_t gfp, unsigned order)
 	return page;
 }
 EXPORT_SYMBOL(alloc_pages_current);
+
+struct page * __alloc_pages_cma(pid_t pid, gfp_t gfp, unsigned int order) 
+{
+	struct page *page;
+
+	page = cma_pte_alloc(pid, 1, order);
+	if (!page)
+	{
+		page = alloc_pages_current(gfp, order);
+	}
+
+	return page;
+}
+EXPORT_SYMBOL(__alloc_pages_cma);
 
 int vma_dup_policy(struct vm_area_struct *src, struct vm_area_struct *dst)
 {
