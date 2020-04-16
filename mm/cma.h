@@ -15,12 +15,12 @@ struct cma {
 	const char *name;
 };
 
-typedef struct cma_pte_pool_t cma_pte_pool_t;
-struct cma_pte_pool_t {
-	int pid;
-	struct cma *cma_area;
-	cma_pte_pool_t *next;
-};
+// typedef struct cma_pte_pool_t cma_pte_pool_t;
+// struct cma_pte_pool_t {
+// 	int pid;
+// 	struct cma *cma_area;
+// 	cma_pte_pool_t *next;
+// };
 struct cma_pte_pool{
 	pid_t pid;
 	struct cma *cma_area;
