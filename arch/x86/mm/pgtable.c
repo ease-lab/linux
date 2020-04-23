@@ -25,6 +25,10 @@ pgtable_t pte_alloc_one(struct mm_struct *mm)
 {
 	return __pte_alloc_one(mm, __userpte_alloc_gfp);
 }
+pgtable_t pte_alloc_one_continuous(struct mm_struct *mm)
+{
+	return __pte_alloc_one_continuous(mm, __userpte_alloc_gfp);
+}
 
 static int __init setup_userpte(char *arg)
 {

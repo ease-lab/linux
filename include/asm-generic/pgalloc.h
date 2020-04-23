@@ -62,12 +62,26 @@ static inline void pte_free_kernel(struct mm_struct *mm, pte_t *pte)
 static inline pgtable_t __pte_alloc_one(struct mm_struct *mm, gfp_t gfp)
 {
 	struct page *pte;
-	// pid_t pid = mm->owner->pid;
-
-	// pte = cma_pte_alloc(pid, 1, 0);
-	// pte = alloc_page_cma(pid, gfp);
-	// if (!pte)
 	pte = alloc_page(gfp);
+	
+	if (!pte)
+		return NULL;
+	if (!pgtable_pte_page_ctor(pte)) {
+		__free_page(pte);
+		return NULL;
+	}
+
+	return pte;
+}
+
+static inline pgtable_t __pte_alloc_one_continuous(struct mm_struct *mm, gfp_t gfp)
+{
+	struct page *pte;
+	pid_t pid = mm->owner->pid;
+	// pte = cma_pte_alloc(pid, 1, 0);
+	pte = alloc_page_cma(pid);
+	if (!pte)
+		pte = alloc_page(gfp);
 	
 	if (!pte)
 		return NULL;
@@ -92,6 +106,10 @@ static inline pgtable_t pte_alloc_one(struct mm_struct *mm)
 {
 	return __pte_alloc_one(mm, GFP_PGTABLE_USER);
 }
+// static inline pgtable_t pte_alloc_one_cma(struct mm_struct *mm)
+// {
+// 	return __pte_alloc_one_cma(mm, GFP_PGTABLE_USER);
+// }
 #endif
 
 /*

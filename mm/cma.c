@@ -184,7 +184,6 @@ struct page *cma_pte_alloc(pid_t pid, size_t count, unsigned int order)
 
 	return cma_alloc(cma_area, order, align, 1);
 }
-// EXPORT_SYMBOL(cma_pte_alloc);
 
 phys_addr_t cma_get_base(const struct cma *cma)
 {
