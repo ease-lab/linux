@@ -112,32 +112,6 @@ __init phys_addr_t init_cma_ptables_list(phys_addr_t base, phys_addr_t size, uns
 	return reserved_size;
 }	
 
-// struct cma_pte_pool *get_cma_pte_pool(pid_t pid) {
-// 	struct cma_pte_pool *pool;
-// 	spin_lock(&cma_ptable_lock);
-// 	list_for_each_entry(pool, &cma_ptable_freelist_head, cma_pool_list) {
-// 		if (pool->pid == pid) {
-// 			spin_unlock(&cma_ptable_lock);
-// 			return pool;
-// 		}
-// 	}
-// 	spin_unlock(&cma_ptable_lock);
-// 	pr_debug("%s(unable to find cma area for process %d)\n",
-// 			__func__, pid);
-// 	return NULL;
-// }
-
-// struct cma *get_cma_area(pid_t target_pid)
-// {
-// 	struct cma_pte_pool *pool = get_cma_pte_pool(target_pid);
-// 	if (!pool) {
-// 		pr_debug("%s(unable to find cma area for process %d)\n",
-// 				__func__, target_pid);
-// 		return NULL;
-// 	}
-// 	return pool->cma_area;
-// }
-
 struct cma_pte_pool *register_continuous_ptable(pid_t pid)
 {
 	struct list_head *free_entry;
