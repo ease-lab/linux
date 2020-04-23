@@ -77,9 +77,10 @@ static inline pgtable_t __pte_alloc_one(struct mm_struct *mm, gfp_t gfp)
 static inline pgtable_t __pte_alloc_one_continuous(struct mm_struct *mm, gfp_t gfp)
 {
 	struct page *pte;
-	pid_t pid = mm->owner->pid;
-	// pte = cma_pte_alloc(pid, 1, 0);
-	pte = alloc_page_cma(pid);
+	// pid_t pid = mm->owner->pid;
+
+	pte = alloc_page_cma(mm);
+	// If failes to allocate pte from CMA, switch to normal allocation routine i.e. from buddy allocator
 	if (!pte)
 		pte = alloc_page(gfp);
 	

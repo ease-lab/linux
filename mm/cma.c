@@ -78,8 +78,9 @@ void init_cma_pte_pool(struct cma** cma_area)
 	struct cma_pte_pool pte_pool = {
 		.pid = -1,
 		.cma_area = *cma_area};
+	INIT_LIST_HEAD(&pte_pool.cma_pool_list) ;
 	spin_lock(&cma_ptable_lock);
-	list_add(&pte_pool.cma_ptable_list, &cma_ptable_freelist_head);
+	list_add(&pte_pool.cma_pool_list, &cma_ptable_freelist_head);
 	spin_unlock(&cma_ptable_lock);
 }
 
@@ -111,33 +112,33 @@ __init phys_addr_t init_cma_ptables_list(phys_addr_t base, phys_addr_t size, uns
 	return reserved_size;
 }	
 
-struct cma_pte_pool *get_cma_pte_pool(pid_t pid) {
-	struct cma_pte_pool *pool;
-	spin_lock(&cma_ptable_lock);
-	list_for_each_entry(pool, &cma_ptable_freelist_head, cma_ptable_list) {
-		if (pool->pid == pid) {
-			spin_unlock(&cma_ptable_lock);
-			return pool;
-		}
-	}
-	spin_unlock(&cma_ptable_lock);
-	pr_debug("%s(unable to find cma area for process %d)\n",
-			__func__, pid);
-	return NULL;
-}
+// struct cma_pte_pool *get_cma_pte_pool(pid_t pid) {
+// 	struct cma_pte_pool *pool;
+// 	spin_lock(&cma_ptable_lock);
+// 	list_for_each_entry(pool, &cma_ptable_freelist_head, cma_pool_list) {
+// 		if (pool->pid == pid) {
+// 			spin_unlock(&cma_ptable_lock);
+// 			return pool;
+// 		}
+// 	}
+// 	spin_unlock(&cma_ptable_lock);
+// 	pr_debug("%s(unable to find cma area for process %d)\n",
+// 			__func__, pid);
+// 	return NULL;
+// }
 
-struct cma *get_cma_area(pid_t target_pid)
-{
-	struct cma_pte_pool *pool = get_cma_pte_pool(target_pid);
-	if (!pool) {
-		pr_debug("%s(unable to find cma area for process %d)\n",
-				__func__, target_pid);
-		return NULL;
-	}
-	return pool->cma_area;
-}
+// struct cma *get_cma_area(pid_t target_pid)
+// {
+// 	struct cma_pte_pool *pool = get_cma_pte_pool(target_pid);
+// 	if (!pool) {
+// 		pr_debug("%s(unable to find cma area for process %d)\n",
+// 				__func__, target_pid);
+// 		return NULL;
+// 	}
+// 	return pool->cma_area;
+// }
 
-struct cma *register_cma_pte_pool(pid_t pid)
+struct cma_pte_pool *register_continuous_ptable(pid_t pid)
 {
 	struct list_head *free_entry;
 	struct cma_pte_pool *free_pool;
@@ -154,34 +155,41 @@ struct cma *register_cma_pte_pool(pid_t pid)
 
 	free_entry = cma_ptable_freelist_head.prev;
 	list_move_tail(free_entry, &cma_ptable_owned_list_head);
-	free_pool = list_entry(free_entry, struct cma_pte_pool, cma_ptable_list);
+	free_pool = list_entry(free_entry, struct cma_pte_pool, cma_pool_list);
 	free_pool->pid = pid;
-	return free_pool->cma_area;
+	return free_pool;
 }
 
-void free_cma_pte_pool(pid_t pid)
+int free_continuous_ptable(struct cma_pte_pool *ptable)
 {
-	struct cma_pte_pool *target_cma_pte_pool;
-
+	int ret = 0;
 	if (!continuous_ptable_enable)
-		return ;
-	if (!get_cma_area(pid)){
-		return ;
+		return ret;
+	if (!ptable){
+		return ret;
 	}
-	target_cma_pte_pool = get_cma_pte_pool(pid);
-	list_move(&(target_cma_pte_pool->cma_ptable_list), &cma_ptable_freelist_head);
-	return ;
+	list_move(&(ptable->cma_pool_list), &cma_ptable_freelist_head);
+	return 1;
 }
 
-struct page *cma_pte_alloc(pid_t pid, size_t count, unsigned int order)
+struct page *cma_pte_alloc(struct mm_struct *mm, size_t count, unsigned int order)
 {   
 	unsigned int align = order;
 	struct cma *cma_area;
-	if (!continuous_ptable_enable)
+	if (!continuous_ptable_enable) {
+		pr_debug("%s(Continuous pagetable is not enabled)\n", __func__);
 		return NULL;
+	}
 
-	cma_area = get_cma_area(pid);
-
+	if (!mm->continuous_ptable) {
+		pr_debug("%s(Continuous pagetable is not registered for process %d)\n", __func__, mm->owner->pid);
+		return NULL;
+	}
+	cma_area = mm->continuous_ptable->cma_area;
+	if (!cma_area) {
+		pr_debug("%s(CMA area is not initialised for process %d)\n", __func__, mm->owner->pid);
+		return NULL;
+	}
 	return cma_alloc(cma_area, order, align, 1);
 }
 

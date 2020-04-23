@@ -2157,11 +2157,10 @@ struct page *alloc_pages_current(gfp_t gfp, unsigned order)
 }
 EXPORT_SYMBOL(alloc_pages_current);
 
-struct page * __alloc_pages_cma(pid_t pid, unsigned int order) 
+struct page * __alloc_pages_cma(struct mm_struct *mm, unsigned int order) 
 {
 	struct page *page;
-
-	page = cma_pte_alloc(pid, 1, order);
+	page = cma_pte_alloc(mm, 1, order);
 
 	return page;
 }

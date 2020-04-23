@@ -5,6 +5,7 @@
 #include <linux/init.h>
 #include <linux/types.h>
 #include <linux/list.h>
+#include <linux/mm_types.h>
 
 /*
  * There is always at least global CMA area and a few optional
@@ -37,10 +38,10 @@ int continuous_ptable_enable_handler(struct ctl_table *table, int write,
 			     loff_t *ppos);
 #define MAX_PROCESSES (3)
 
-extern struct cma *register_cma_pte_pool(pid_t pid);
-extern struct cma *get_cma_area(pid_t target_pid);
-extern void free_cma_pte_pool(pid_t pid);
-extern struct page *cma_pte_alloc(pid_t pid, size_t count, unsigned int order);
+extern struct cma_pte_pool *register_continuous_ptable(pid_t pid);
+// extern struct cma *get_cma_area(pid_t target_pid);
+extern int free_continuous_ptable(struct cma_pte_pool *ptable);
+extern struct page *cma_pte_alloc(struct mm_struct *mm, size_t count, unsigned int order);
 
 
 extern unsigned long totalcma_pages;

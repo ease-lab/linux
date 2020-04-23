@@ -94,6 +94,7 @@
 #include <linux/livepatch.h>
 #include <linux/thread_info.h>
 #include <linux/stackleak.h>
+#include <linux/cma.h>
 
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
@@ -1042,6 +1043,7 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 		goto fail_nocontext;
 
 	mm->user_ns = get_user_ns(user_ns);
+	mm->continuous_ptable = register_continuous_ptable(p->pid);
 	return mm;
 
 fail_nocontext:

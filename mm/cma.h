@@ -18,7 +18,7 @@ struct cma {
 struct cma_pte_pool{
 	pid_t pid;
 	struct cma *cma_area;
-	struct list_head cma_ptable_list; //double linked list 
+	struct list_head cma_pool_list; //double linked list 
 };
 
 extern struct cma cma_areas[MAX_CMA_AREAS+MAX_PROCESSES];
