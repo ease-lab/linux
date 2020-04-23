@@ -1287,8 +1287,8 @@ static int wait_for_vfork_done(struct task_struct *child,
  */
 void mm_release(struct task_struct *tsk, struct mm_struct *mm)
 {
-	// if (mm && mm->continuous_ptable)
-	// 	release_continuous_ptable(mm->continuous_ptable);
+	if (mm && mm->continuous_ptable)
+		release_continuous_ptable(mm->continuous_ptable);
 	/* Get rid of any futexes when releasing the mm */
 #ifdef CONFIG_FUTEX
 	if (unlikely(tsk->robust_list)) {

@@ -36,7 +36,7 @@ int continuous_ptable_size_handler(struct ctl_table *table, int write,
 int continuous_ptable_enable_handler(struct ctl_table *table, int write,
 			     void __user *buffer, size_t *lenp,
 			     loff_t *ppos);
-#define MAX_PROCESSES (3)
+#define MAX_PROCESSES (10)
 
 extern struct cma_pte_pool *register_continuous_ptable(pid_t pid);
 extern void release_continuous_ptable(struct cma_pte_pool *ptable);

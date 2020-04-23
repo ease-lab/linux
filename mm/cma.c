@@ -122,7 +122,7 @@ struct cma_pte_pool *register_continuous_ptable(pid_t pid)
 		return NULL;
 	}
 
-	free_entry = cma_ptable_freelist_head.prev;
+	free_entry = cma_ptable_freelist_head.next;
 	list_move_tail(free_entry, &cma_ptable_owned_list_head);
 	free_pool = list_entry(free_entry, struct cma_pte_pool, cma_pool_list);
 	free_pool->pid = pid;
@@ -136,6 +136,7 @@ void release_continuous_ptable(struct cma_pte_pool *ptable)
 	if (continuous_ptable_enable && ptable) {
 		pr_debug("%s(Release pte pool for process %d)\n",
 			__func__, ptable->pid);
+		ptable->pid=-1;
 		list_move(&(ptable->cma_pool_list), &cma_ptable_freelist_head);
 	}
 }
