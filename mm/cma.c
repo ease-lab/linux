@@ -38,6 +38,7 @@
 #include "cma.h"
 
 struct cma cma_areas[MAX_CMA_AREAS+MAX_PROCESSES];
+struct cma_pte_pool pte_pools[MAX_PROCESSES];
 unsigned cma_area_count;
 static DEFINE_MUTEX(cma_mutex);
 
@@ -73,17 +74,6 @@ static DEFINE_SPINLOCK(cma_ptable_lock);
 
 unsigned long POOL_SIZE = 1 * SZ_16M;
 
-void init_cma_pte_pool(struct cma** cma_area)
-{
-	struct cma_pte_pool pte_pool = {
-		.pid = -1,
-		.cma_area = *cma_area};
-	INIT_LIST_HEAD(&pte_pool.cma_pool_list) ;
-	spin_lock(&cma_ptable_lock);
-	list_add(&pte_pool.cma_pool_list, &cma_ptable_freelist_head);
-	spin_unlock(&cma_ptable_lock);
-}
-
 __init phys_addr_t init_cma_ptables_list(phys_addr_t base, phys_addr_t size, unsigned int order_per_bit)
 {
 	int ret = 0;
@@ -103,7 +93,12 @@ __init phys_addr_t init_cma_ptables_list(phys_addr_t base, phys_addr_t size, uns
 			memblock_free(base, POOL_SIZE); 
 			break;
 		}
-		init_cma_pte_pool(&temp_cma);
+
+		pte_pools[i].cma_area = temp_cma;
+		spin_lock(&cma_ptable_lock);
+		list_add(&pte_pools[i].cma_pool_list, &cma_ptable_freelist_head);
+		spin_unlock(&cma_ptable_lock);
+
 		reserved_size = reserved_size + POOL_SIZE;
 	}
 	pr_debug("%s(total size %pa, base %pa, ptable reserved size %pa, reserve %d pools)\n",
@@ -131,19 +126,18 @@ struct cma_pte_pool *register_continuous_ptable(pid_t pid)
 	list_move_tail(free_entry, &cma_ptable_owned_list_head);
 	free_pool = list_entry(free_entry, struct cma_pte_pool, cma_pool_list);
 	free_pool->pid = pid;
+	pr_debug("%s(Register pte pool for process %d)\n",
+			__func__, pid);
 	return free_pool;
 }
 
-int free_continuous_ptable(struct cma_pte_pool *ptable)
+void release_continuous_ptable(struct cma_pte_pool *ptable)
 {
-	int ret = 0;
-	if (!continuous_ptable_enable)
-		return ret;
-	if (!ptable){
-		return ret;
+	if (continuous_ptable_enable && ptable) {
+		pr_debug("%s(Release pte pool for process %d)\n",
+			__func__, ptable->pid);
+		list_move(&(ptable->cma_pool_list), &cma_ptable_freelist_head);
 	}
-	list_move(&(ptable->cma_pool_list), &cma_ptable_freelist_head);
-	return 1;
 }
 
 struct page *cma_pte_alloc(struct mm_struct *mm, size_t count, unsigned int order)

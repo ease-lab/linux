@@ -39,8 +39,7 @@ int continuous_ptable_enable_handler(struct ctl_table *table, int write,
 #define MAX_PROCESSES (3)
 
 extern struct cma_pte_pool *register_continuous_ptable(pid_t pid);
-// extern struct cma *get_cma_area(pid_t target_pid);
-extern int free_continuous_ptable(struct cma_pte_pool *ptable);
+extern void release_continuous_ptable(struct cma_pte_pool *ptable);
 extern struct page *cma_pte_alloc(struct mm_struct *mm, size_t count, unsigned int order);
 
 
