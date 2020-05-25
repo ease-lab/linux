@@ -1,18 +1,39 @@
-Linux kernel
-============
+# Continuous page table entry allocation
 
-There are several guides for kernel developers and users. These guides can
-be rendered in a number of formats, like HTML and PDF. Please read
-Documentation/admin-guide/README.rst first.
+Using continuous memory allocator (CMA) to allocate physically continued page to last level of page table i.e. page table entry (pte).
 
-In order to build the documentation, use ``make htmldocs`` or
-``make pdfdocs``.  The formatted documentation can also be read online at:
+## Set Up Environment
 
-    https://www.kernel.org/doc/html/latest/
+### Download
 
-There are various text files in the Documentation/ subdirectory,
-several of them using the Restructured Text markup notation.
+Download the source code to local machine and all the dependencies for booting Linux kernel.
 
-Please read the Documentation/process/changes.rst file, as it contains the
-requirements for building and running the kernel, and information about
-the problems which may result by upgrading your kernel.
+### Configuration
+
+1. "make kvmconfig" 
+2. "make menuconfig" or editing .config file directly - configure the following changes to enable continuous page table entry allocation
+    - CMA  in x86-64
+
+        CONFIG_CMA=y
+        CONFIG_DMA_CMA =y
+        CONFIG_CMA_DEBUG=y
+        CONFIG_CMA_DEBUGFS=y
+        
+    - Retrieve PID
+
+        CONFIG_MEMCG=y
+
+3. "make" - compile the kernel
+
+## Boot kernel with QEMU
+
+```bash
+qemu-system-x86_64 -kernel arch/x86_64/boot/bzImage -initrd <Initial ramdisk address> -m 1G -append "cma=400M"
+```
+Optionally one can append '-enable-kvm' (requiring root permission).
+
+## Turn on allocation 
+
+```bash
+sysctl -w vm/continuous_pgtable_enable=1
+```
