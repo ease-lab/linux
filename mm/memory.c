@@ -197,7 +197,8 @@ static void free_pte_range(struct mmu_gather *tlb, pmd_t *pmd,
 {
 	pgtable_t token = pmd_pgtable(*pmd);
 	pmd_clear(pmd);
-	pte_free_tlb(tlb, token, addr);
+	// pte_free_tlb(tlb, token, addr);
+	__pte_free_continuous(tlb, token, addr);
 	mm_dec_nr_ptes(tlb->mm);
 }
 
@@ -406,6 +407,7 @@ int __pte_alloc(struct mm_struct *mm, pmd_t *pmd)
 {
 	spinlock_t *ptl;
 	pgtable_t new = pte_alloc_one(mm);
+	// pgtable_t new = pte_alloc_one_continuous(mm);
 	if (!new)
 		return -ENOMEM;
 
@@ -433,6 +435,7 @@ int __pte_alloc(struct mm_struct *mm, pmd_t *pmd)
 	spin_unlock(ptl);
 	if (new)
 		pte_free(mm, new);
+		// pte_free_continuous(mm, new);
 	return 0;
 }
 

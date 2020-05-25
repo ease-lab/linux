@@ -63,6 +63,7 @@
 #include <linux/random.h>
 #include <linux/rcuwait.h>
 #include <linux/compat.h>
+#include <linux/cma.h>
 
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
@@ -545,6 +546,7 @@ static void exit_mm(void)
 	task_unlock(current);
 	mm_update_next_owner(mm);
 	mmput(mm);
+	release_continuous_pgtable(mm->continuous_pgtable);
 	if (test_thread_flag(TIF_MEMDIE))
 		exit_oom_victim();
 }

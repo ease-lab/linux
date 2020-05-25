@@ -505,6 +505,12 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm,
 	mm->exec_vm = oldmm->exec_vm;
 	mm->stack_vm = oldmm->stack_vm;
 
+	if (oldmm->continuous_pgtable) {
+		mm->continuous_pgtable = oldmm->continuous_pgtable;
+	} else {
+		release_continuous_pgtable(mm->continuous_pgtable);
+	}
+	
 	rb_link = &mm->mm_rb.rb_node;
 	rb_parent = NULL;
 	pprev = &mm->mmap;
@@ -1044,7 +1050,7 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 
 	mm->user_ns = get_user_ns(user_ns);
 	if (p) {
-		mm->continuous_ptable = register_continuous_ptable(p->pid);
+		mm->continuous_pgtable = register_continuous_pgtable(p->pid);
 	}
 	return mm;
 
@@ -1287,8 +1293,6 @@ static int wait_for_vfork_done(struct task_struct *child,
  */
 void mm_release(struct task_struct *tsk, struct mm_struct *mm)
 {
-	if (mm && mm->continuous_ptable)
-		release_continuous_ptable(mm->continuous_ptable);
 	/* Get rid of any futexes when releasing the mm */
 #ifdef CONFIG_FUTEX
 	if (unlikely(tsk->robust_list)) {

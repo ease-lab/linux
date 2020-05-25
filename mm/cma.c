@@ -37,15 +37,14 @@
 
 #include "cma.h"
 
-struct cma cma_areas[MAX_CMA_AREAS+MAX_PROCESSES];
-struct cma_pte_pool pte_pools[MAX_PROCESSES];
+struct cma cma_areas[MAX_CMA_AREAS+MAX_PGTABLES];
 unsigned cma_area_count;
 static DEFINE_MUTEX(cma_mutex);
 
-int continuous_ptable_enable = 0;
-long min_continuous_ptable = 0;
-long max_continuous_ptable = 1;
-int continuous_ptable_enable_handler(struct ctl_table *table, int write,
+int continuous_pgtable_enable = 0;
+long min_continuous_pgtable = 0;
+long max_continuous_pgtable = 1;
+int continuous_pgtable_enable_handler(struct ctl_table *table, int write,
 			     void __user *buffer, size_t *lenp,
 			     loff_t *ppos)
 {
@@ -55,39 +54,41 @@ int continuous_ptable_enable_handler(struct ctl_table *table, int write,
 	return ret;
 }
 
-int continuous_ptable_size = 10;
-long min_continuous_ptable_size = 0;
-long max_continuous_ptable_size;
-int continuous_ptable_size_handler(struct ctl_table *table, int write,
-			     void __user *buffer, size_t *lenp,
-			     loff_t *ppos)
-{
-	int ret;
-	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
-
-	return ret;
-}
-
-static LIST_HEAD(cma_ptable_freelist_head);
-static LIST_HEAD(cma_ptable_owned_list_head);
-static DEFINE_SPINLOCK(cma_ptable_lock);
-
+struct cma_pte_pool pte_pools[MAX_PGTABLES];
 unsigned long POOL_SIZE = 1 * SZ_16M;
+static LIST_HEAD(cma_pgtable_freelist_head);
+static LIST_HEAD(cma_pgtable_owned_list_head);
+static DEFINE_SPINLOCK(cma_pgtable_lock);
 
-__init phys_addr_t init_cma_ptables_list(phys_addr_t base, phys_addr_t size, unsigned int order_per_bit)
+#ifdef CONFIG_CMA_DEBUG
+void print_pgtable_list(struct list_head *head, char *name) {
+	struct list_head *pos;
+	struct cma_pte_pool *pool;
+	unsigned int i = 0;
+
+	list_for_each(pos, head){
+		i = i+1;
+		pool = list_entry(pos, struct cma_pte_pool, cma_pool_list);
+		if(pool->pid) pr_debug("%s(cma area at %p registered for process %d)",
+			__func__, pool->cma_area, pool->pid);
+	}
+}
+#endif
+
+__init phys_addr_t init_cma_pgtables_list(phys_addr_t base, phys_addr_t size, unsigned int order_per_bit)
 {
 	int ret = 0;
 	int i = 0;
 	phys_addr_t reserved_size = 0;
 	struct cma *temp_cma;
 
-	if (size < (MAX_PROCESSES * POOL_SIZE)) {
+	if (size < (MAX_PGTABLES * POOL_SIZE)) {
 		pr_err("Failed to reserve %d pte pool %ld MiB: Not enough memory\n", i, POOL_SIZE / SZ_1M);
 		return reserved_size;
 	}
 
-	for (i = 0; i < MAX_PROCESSES; i++) {
-		ret = cma_init_reserved_mem(base+reserved_size, (phys_addr_t) POOL_SIZE, order_per_bit, "cma_pte_pool", &temp_cma);
+	for (i = 0; i < MAX_PGTABLES; i++) {
+		ret = cma_init_reserved_mem(base+reserved_size, (phys_addr_t) POOL_SIZE, order_per_bit, "pte pool", &temp_cma);
 		if (ret) {
 			pr_err("Failed to reserve %d pte pool %ld MiB\n", i, POOL_SIZE / SZ_1M);
 			memblock_free(base, POOL_SIZE); 
@@ -95,71 +96,86 @@ __init phys_addr_t init_cma_ptables_list(phys_addr_t base, phys_addr_t size, uns
 		}
 
 		pte_pools[i].cma_area = temp_cma;
-		spin_lock(&cma_ptable_lock);
-		list_add(&pte_pools[i].cma_pool_list, &cma_ptable_freelist_head);
-		spin_unlock(&cma_ptable_lock);
-
+		spin_lock(&cma_pgtable_lock);
+		list_add(&pte_pools[i].cma_pool_list, &cma_pgtable_freelist_head);
+		spin_unlock(&cma_pgtable_lock);
 		reserved_size = reserved_size + POOL_SIZE;
 	}
-	pr_debug("%s(total size %pa, base %pa, ptable reserved size %pa, reserve %d pools)\n",
+	pr_debug("%s(total size %pa, base %pa, pgtable reserved size %pa, reserve %d pools)\n",
 		__func__, &size, &base, &reserved_size, i);
-
+	print_pgtable_list(&cma_pgtable_freelist_head, "free");
 	return reserved_size;
 }	
 
-struct cma_pte_pool *register_continuous_ptable(pid_t pid)
+
+struct cma_pte_pool *register_continuous_pgtable(pid_t pid)
 {
 	struct list_head *free_entry;
 	struct cma_pte_pool *free_pool;
 
-	if (!continuous_ptable_enable) {
-		pr_debug("%s(Continuous pagetable is not enabled)\n", __func__);
+	if (!continuous_pgtable_enable) {
 		return NULL;
 	}
-	if (list_empty(&cma_ptable_freelist_head)) {
-		pr_debug("%s(unable to register cma area for pte allocation: reach maximum number of processes)\n",
+	if (list_empty(&cma_pgtable_freelist_head)) {
+		pr_debug("%s(unable to register cma area for pte allocation: no free cma area for assignment)\n",
 			__func__);
 		return NULL;
 	}
+	spin_lock(&cma_pgtable_lock);
+	free_entry = cma_pgtable_freelist_head.next;
+	list_move(free_entry, &cma_pgtable_owned_list_head);
+	spin_unlock(&cma_pgtable_lock);
 
-	free_entry = cma_ptable_freelist_head.next;
-	list_move_tail(free_entry, &cma_ptable_owned_list_head);
 	free_pool = list_entry(free_entry, struct cma_pte_pool, cma_pool_list);
 	free_pool->pid = pid;
-	pr_debug("%s(Register pte pool for process %d)\n",
-			__func__, pid);
+	pr_debug("%s(Register pte pool for process %d)\n", __func__, pid);
+	print_pgtable_list(&cma_pgtable_owned_list_head, "owned");
 	return free_pool;
 }
 
-void release_continuous_ptable(struct cma_pte_pool *ptable)
+void release_continuous_pgtable(struct cma_pte_pool *pgtable)
 {
-	if (continuous_ptable_enable && ptable) {
-		pr_debug("%s(Release pte pool for process %d)\n",
-			__func__, ptable->pid);
-		ptable->pid=-1;
-		list_move(&(ptable->cma_pool_list), &cma_ptable_freelist_head);
-	}
+	if (!pgtable) 
+		return;
+	
+	spin_lock(&cma_pgtable_lock);
+	list_move(&(pgtable->cma_pool_list), &cma_pgtable_freelist_head);
+	spin_unlock(&cma_pgtable_lock);
+
+	pr_debug("%s(Release pte pool for process %d)\n", __func__, pgtable->pid);	
+	pgtable->pid=-1;
 }
 
 struct page *cma_pte_alloc(struct mm_struct *mm, size_t count, unsigned int order)
 {   
 	unsigned int align = order;
 	struct cma *cma_area;
-	if (!continuous_ptable_enable) {
-		pr_debug("%s(Continuous pagetable is not enabled)\n", __func__);
+	struct page *pte;
+	if (!continuous_pgtable_enable || !mm->continuous_pgtable) {
 		return NULL;
 	}
 
-	if (!mm->continuous_ptable) {
-		pr_debug("%s(Continuous pagetable is not registered for process %d)\n", __func__, mm->owner->pid);
-		return NULL;
-	}
-	cma_area = mm->continuous_ptable->cma_area;
+	cma_area = mm->continuous_pgtable->cma_area;
 	if (!cma_area) {
 		pr_debug("%s(CMA area is not initialised for process %d)\n", __func__, mm->owner->pid);
 		return NULL;
 	}
-	return cma_alloc(cma_area, order, align, 1);
+	pte = cma_alloc(cma_area, count, align, 1);
+	return pte;
+}
+
+bool cma_pte_free(struct mm_struct *mm, struct page *pte)
+{   
+	struct cma *cma_area;
+	if (!continuous_pgtable_enable || !mm->continuous_pgtable) 
+		return 0;
+
+	cma_area = mm->continuous_pgtable->cma_area;
+	if (!cma_area) 
+		return 0;
+
+	page_mapcount_reset(pte);
+	return cma_release(cma_area, pte, 1);
 }
 
 phys_addr_t cma_get_base(const struct cma *cma)
@@ -339,7 +355,6 @@ int __init cma_init_reserved_mem(phys_addr_t base, phys_addr_t size,
 	*res_cma = cma;
 	cma_area_count++;
 	totalcma_pages += (size / PAGE_SIZE);
-	max_continuous_ptable_size = totalcma_pages >> 8;
 
 	return 0;
 }
@@ -371,7 +386,7 @@ int __init cma_declare_contiguous(phys_addr_t base,
 	phys_addr_t memblock_end = memblock_end_of_DRAM();
 	phys_addr_t highmem_start;
 	int ret = 0;
-	phys_addr_t ptable_reserved_size = 0;
+	phys_addr_t pgtable_reserved_size = 0;
 
 	/*
 	 * We can't use __pa(high_memory) directly, since high_memory
@@ -484,8 +499,8 @@ int __init cma_declare_contiguous(phys_addr_t base,
 		base = addr;
 	}
 
-	ptable_reserved_size = init_cma_ptables_list(base, size, order_per_bit);
-	ret = cma_init_reserved_mem(base+ptable_reserved_size, size-ptable_reserved_size, order_per_bit, name, res_cma);
+	pgtable_reserved_size = init_cma_pgtables_list(base, size, order_per_bit);
+	ret = cma_init_reserved_mem(base+pgtable_reserved_size, size-pgtable_reserved_size, order_per_bit, name, res_cma);
 
 	if (ret)
 		goto free_mem;
@@ -644,12 +659,12 @@ bool cma_release(struct cma *cma, const struct page *pages, unsigned int count)
 	if (!cma || !pages)
 		return false;
 
-	pr_debug("%s(page %p)\n", __func__, (void *)pages);
-
 	pfn = page_to_pfn(pages);
 
 	if (pfn < cma->base_pfn || pfn >= cma->base_pfn + cma->count)
 		return false;
+
+	pr_debug("%s(page %p)\n", __func__, (void *)pages);
 
 	VM_BUG_ON(pfn + count > cma->base_pfn + cma->count);
 

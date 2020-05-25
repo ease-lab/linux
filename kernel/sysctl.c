@@ -1731,24 +1731,17 @@ static struct ctl_table vm_table[] = {
 		.extra2		= (void *)&mmap_rnd_compat_bits_max,
 	},
 #endif
+#ifdef CONFIG_CMA_AREAS
 	{
-		.procname	= "continuous_ptable_size",
-		.data		= &continuous_ptable_size,
-		.maxlen		= sizeof(continuous_ptable_size),
+		.procname	= "continuous_pgtable_enable",
+		.data		= &continuous_pgtable_enable,
+		.maxlen		= sizeof(continuous_pgtable_enable),
 		.mode		= 0644,
-		.proc_handler	= continuous_ptable_size_handler,
-		.extra1		= (void *)&min_continuous_ptable_size,
-		.extra2		= (void *)&max_continuous_ptable_size,
+		.proc_handler	= continuous_pgtable_enable_handler,
+		.extra1		= (void *)&min_continuous_pgtable,
+		.extra2		= (void *)&max_continuous_pgtable,
 	},
-	{
-		.procname	= "continuous_ptable_enable",
-		.data		= &continuous_ptable_enable,
-		.maxlen		= sizeof(continuous_ptable_enable),
-		.mode		= 0644,
-		.proc_handler	= continuous_ptable_enable_handler,
-		.extra1		= (void *)&min_continuous_ptable,
-		.extra2		= (void *)&max_continuous_ptable,
-	},
+#endif
 #ifdef CONFIG_USERFAULTFD
 	{
 		.procname	= "unprivileged_userfaultfd",

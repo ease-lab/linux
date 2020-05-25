@@ -20,28 +20,21 @@
 #endif
 struct cma;
 
-extern int continuous_ptable_enable;
-extern long min_continuous_ptable;
-extern long max_continuous_ptable;
-
-extern int continuous_ptable_size;
-extern long min_continuous_ptable_size;
-extern long max_continuous_ptable_size;
-
 struct ctl_table;
-int continuous_ptable_size_handler(struct ctl_table *table, int write,
-			     void __user *buffer, size_t *lenp,
-			     loff_t *ppos); 
+extern int continuous_pgtable_enable;
+extern long min_continuous_pgtable;
+extern long max_continuous_pgtable;
 
-int continuous_ptable_enable_handler(struct ctl_table *table, int write,
+int continuous_pgtable_enable_handler(struct ctl_table *table, int write,
 			     void __user *buffer, size_t *lenp,
 			     loff_t *ppos);
-#define MAX_PROCESSES (10)
 
-extern struct cma_pte_pool *register_continuous_ptable(pid_t pid);
-extern void release_continuous_ptable(struct cma_pte_pool *ptable);
+#define MAX_PGTABLES (10)
+
+extern struct cma_pte_pool *register_continuous_pgtable(pid_t pid);
+extern void release_continuous_pgtable(struct cma_pte_pool *pgtable);
 extern struct page *cma_pte_alloc(struct mm_struct *mm, size_t count, unsigned int order);
-
+extern bool cma_pte_free(struct mm_struct *mm, struct page *pte);
 
 extern unsigned long totalcma_pages;
 extern phys_addr_t cma_get_base(const struct cma *cma);

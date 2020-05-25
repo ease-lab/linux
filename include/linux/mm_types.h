@@ -383,7 +383,7 @@ struct mm_struct {
 		unsigned long highest_vm_end;	/* highest vma end address */
 		pgd_t * pgd;
 
-		struct cma_pte_pool *continuous_ptable;
+		struct cma_pte_pool *continuous_pgtable;
 
 		/**
 		 * @mm_users: The number of users including userspace.

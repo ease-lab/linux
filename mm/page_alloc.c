@@ -68,6 +68,7 @@
 #include <linux/lockdep.h>
 #include <linux/nmi.h>
 #include <linux/psi.h>
+#include <linux/cma.h>
 
 #include <asm/sections.h>
 #include <asm/tlbflush.h>
@@ -3170,7 +3171,7 @@ int __isolate_free_page(struct page *page, unsigned int order)
 	return 1UL << order;
 }
 
-/*	
+/*
  * Update NUMA hit/miss statistics
  *
  * Must be called with interrupts disabled.
@@ -4791,6 +4792,14 @@ void __free_pages(struct page *page, unsigned int order)
 		free_the_page(page, order);
 }
 EXPORT_SYMBOL(__free_pages);
+
+bool __free_page_cma(struct mm_struct *mm, struct page *page)
+{
+	if (put_page_testzero(page))
+		return cma_pte_free(mm, page);
+	return 0;
+}
+EXPORT_SYMBOL(__free_page_cma);
 
 void free_pages(unsigned long addr, unsigned int order)
 {
