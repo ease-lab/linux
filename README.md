@@ -11,12 +11,18 @@ Download the source code to local machine and all the dependencies for booting L
 ### Configuration
 
 1. "make kvmconfig" 
-2. "make menuconfig" or editing .config file directly - configure the following changes to enable continuous page table entry allocation
+2. "make menuconfig" or editing .config file directly 
+
+Make the following changes to configuration to enable continuous page table entry allocation
+
     - CMA  in x86-64
 
-        CONFIG_CMA=y
-        CONFIG_DMA_CMA =y
+        CONFIG_CMA=y 
+        
+        CONFIG_DMA_CMA =y 
+        
         CONFIG_CMA_DEBUG=y
+        
         CONFIG_CMA_DEBUGFS=y
         
     - Retrieve PID
