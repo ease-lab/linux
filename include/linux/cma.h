@@ -4,6 +4,8 @@
 
 #include <linux/init.h>
 #include <linux/types.h>
+#include <linux/list.h>
+#include <linux/mm_types.h>
 
 /*
  * There is always at least global CMA area and a few optional
@@ -16,8 +18,23 @@
 #define MAX_CMA_AREAS	(0)
 
 #endif
-
 struct cma;
+
+struct ctl_table;
+extern int continuous_pgtable_enable;
+extern long min_continuous_pgtable;
+extern long max_continuous_pgtable;
+
+int continuous_pgtable_enable_handler(struct ctl_table *table, int write,
+			     void __user *buffer, size_t *lenp,
+			     loff_t *ppos);
+
+#define MAX_PGTABLES (10)
+
+extern struct cma_pte_pool *register_continuous_pgtable(pid_t pid);
+extern void release_continuous_pgtable(struct cma_pte_pool *pgtable);
+extern struct page *cma_pte_alloc(struct mm_struct *mm, size_t count, unsigned int order);
+extern bool cma_pte_free(struct mm_struct *mm, struct page *pte);
 
 extern unsigned long totalcma_pages;
 extern phys_addr_t cma_get_base(const struct cma *cma);

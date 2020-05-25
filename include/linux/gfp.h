@@ -508,6 +508,14 @@ alloc_pages(gfp_t gfp_mask, unsigned int order)
 {
 	return alloc_pages_current(gfp_mask, order);
 }
+
+extern struct page *__alloc_pages_cma(struct mm_struct *mm, unsigned int order);
+
+static inline struct page *alloc_pages_cma(struct mm_struct *mm, unsigned int order)
+{
+	return __alloc_pages_cma(mm, order);
+}
+
 extern struct page *alloc_pages_vma(gfp_t gfp_mask, int order,
 			struct vm_area_struct *vma, unsigned long addr,
 			int node);
@@ -518,6 +526,7 @@ extern struct page *alloc_pages_vma(gfp_t gfp_mask, int order,
 	alloc_pages(gfp_mask, order)
 #endif
 #define alloc_page(gfp_mask) alloc_pages(gfp_mask, 0)
+#define alloc_page_cma(mm) alloc_pages_cma(mm, 0)
 #define alloc_page_vma(gfp_mask, vma, addr)			\
 	alloc_pages_vma(gfp_mask, 0, vma, addr, numa_node_id())
 #define alloc_page_vma_node(gfp_mask, vma, addr, node)		\
@@ -537,6 +546,7 @@ void * __meminit alloc_pages_exact_nid(int nid, size_t size, gfp_t gfp_mask);
 		__get_free_pages((gfp_mask) | GFP_DMA, (order))
 
 extern void __free_pages(struct page *page, unsigned int order);
+extern bool __free_page_cma(struct mm_struct *mm, struct page *page);
 extern void free_pages(unsigned long addr, unsigned int order);
 extern void free_unref_page(struct page *page);
 extern void free_unref_page_list(struct list_head *list);

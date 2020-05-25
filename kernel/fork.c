@@ -94,6 +94,7 @@
 #include <linux/livepatch.h>
 #include <linux/thread_info.h>
 #include <linux/stackleak.h>
+#include <linux/cma.h>
 
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
@@ -504,6 +505,12 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm,
 	mm->exec_vm = oldmm->exec_vm;
 	mm->stack_vm = oldmm->stack_vm;
 
+	if (oldmm->continuous_pgtable) {
+		mm->continuous_pgtable = oldmm->continuous_pgtable;
+	} else {
+		release_continuous_pgtable(mm->continuous_pgtable);
+	}
+	
 	rb_link = &mm->mm_rb.rb_node;
 	rb_parent = NULL;
 	pprev = &mm->mmap;
@@ -1042,6 +1049,9 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 		goto fail_nocontext;
 
 	mm->user_ns = get_user_ns(user_ns);
+	if (p) {
+		mm->continuous_pgtable = register_continuous_pgtable(p->pid);
+	}
 	return mm;
 
 fail_nocontext:

@@ -2,6 +2,7 @@
 #include <linux/mm.h>
 #include <linux/gfp.h>
 #include <linux/hugetlb.h>
+#include <linux/cma.h>
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
 #include <asm/tlb.h>
@@ -24,6 +25,10 @@ gfp_t __userpte_alloc_gfp = GFP_PGTABLE_USER | PGTABLE_HIGHMEM;
 pgtable_t pte_alloc_one(struct mm_struct *mm)
 {
 	return __pte_alloc_one(mm, __userpte_alloc_gfp);
+}
+pgtable_t pte_alloc_one_continuous(struct mm_struct *mm)
+{
+	return __pte_alloc_one_continuous(mm, __userpte_alloc_gfp);
 }
 
 static int __init setup_userpte(char *arg)
@@ -48,6 +53,13 @@ void ___pte_free_tlb(struct mmu_gather *tlb, struct page *pte)
 	pgtable_pte_page_dtor(pte);
 	paravirt_release_pte(page_to_pfn(pte));
 	paravirt_tlb_remove_table(tlb, pte);
+}
+
+void ___pte_free_continuous(struct mmu_gather *tlb, struct page *pte)
+{
+	if (!cma_pte_free(tlb->mm, pte)) {
+		___pte_free_tlb(tlb, pte);
+	}
 }
 
 #if CONFIG_PGTABLE_LEVELS > 2

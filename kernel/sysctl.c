@@ -68,6 +68,7 @@
 #include <linux/bpf.h>
 #include <linux/mount.h>
 #include <linux/userfaultfd_k.h>
+#include <linux/cma.h>
 
 #include "../lib/kstrtox.h"
 
@@ -1728,6 +1729,17 @@ static struct ctl_table vm_table[] = {
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= (void *)&mmap_rnd_compat_bits_min,
 		.extra2		= (void *)&mmap_rnd_compat_bits_max,
+	},
+#endif
+#ifdef CONFIG_CMA_AREAS
+	{
+		.procname	= "continuous_pgtable_enable",
+		.data		= &continuous_pgtable_enable,
+		.maxlen		= sizeof(continuous_pgtable_enable),
+		.mode		= 0644,
+		.proc_handler	= continuous_pgtable_enable_handler,
+		.extra1		= (void *)&min_continuous_pgtable,
+		.extra2		= (void *)&max_continuous_pgtable,
 	},
 #endif
 #ifdef CONFIG_USERFAULTFD
