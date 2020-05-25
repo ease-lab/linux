@@ -69,12 +69,17 @@ void print_pgtable_list(struct list_head *head, char *name) {
 	list_for_each(pos, head){
 		i = i+1;
 		pool = list_entry(pos, struct cma_pte_pool, cma_pool_list);
-		if(pool->pid) pr_debug("%s(cma area at %p registered for process %d)",
-			__func__, pool->cma_area, pool->pid);
+		if(pool->pid) pr_debug("%s(%s list: cma area at %p registered for process %d)",
+			__func__, name, pool->cma_area, pool->pid);
 	}
 }
 #endif
 
+/**
+ * Initialise a list of cma areas (i.e. cma_pgtable_freelist) which only used 
+ * for allocating a process's page table entry. This method is called during boot time,
+ * when all the cma areas are initialised.
+ **/
 __init phys_addr_t init_cma_pgtables_list(phys_addr_t base, phys_addr_t size, unsigned int order_per_bit)
 {
 	int ret = 0;
@@ -107,7 +112,11 @@ __init phys_addr_t init_cma_pgtables_list(phys_addr_t base, phys_addr_t size, un
 	return reserved_size;
 }	
 
-
+/**
+ * register_continuous_pgtable() - assign a cma area from the free list to a process 
+ * for allocating physically continuous pages.
+ * @pid: The process id
+ **/
 struct cma_pte_pool *register_continuous_pgtable(pid_t pid)
 {
 	struct list_head *free_entry;
@@ -133,6 +142,11 @@ struct cma_pte_pool *register_continuous_pgtable(pid_t pid)
 	return free_pool;
 }
 
+/**
+ * release_continuous_pgtable() - Release the cma area to free list when 
+ * the process terminates.
+ * @pgtable: The previously assigned cma area (if exists)
+ **/
 void release_continuous_pgtable(struct cma_pte_pool *pgtable)
 {
 	if (!pgtable) 
@@ -146,6 +160,12 @@ void release_continuous_pgtable(struct cma_pte_pool *pgtable)
 	pgtable->pid=-1;
 }
 
+/**
+ * cma_pte_alloc() - allocate a physically continuous page given the process's mm
+ * @mm: 	The process's memory area
+ * @count:  Number of pages to be allocated
+ * @order:  The desired order of the page
+ **/
 struct page *cma_pte_alloc(struct mm_struct *mm, size_t count, unsigned int order)
 {   
 	unsigned int align = order;
@@ -164,6 +184,13 @@ struct page *cma_pte_alloc(struct mm_struct *mm, size_t count, unsigned int orde
 	return pte;
 }
 
+/**
+ * cma_pte_free() - free a page 
+ * @mm:  The process's memory area
+ * @pte: The page to be freed
+ * 
+ * Returns a boolean indicating whether the page has been freed successfully
+ **/
 bool cma_pte_free(struct mm_struct *mm, struct page *pte)
 {   
 	struct cma *cma_area;
